@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>班级积分系统 v6.8</title>
+    <title>班级积分系统 v6.9</title>
     <style>
 /* ===== styles/base.css ===== */
 /* ================================================================
@@ -432,6 +432,267 @@ body {
 .submit-row > .submit-actions > button { flex: 0 0 auto; }
 .submit-row > .last-action { flex: 1 1 100%; }
 .last-action { font-size: 14px; color: #2b6cb0; font-weight: 600; min-height: 18px; }
+
+/* ================================================================
+   通用组件（技术债 R1：从 touch.css 搬来，原先的位置见每条上方标注）
+   touch.css 历史上被当成"通用组件垃圾桶"，表格 / 折叠卡 / 分类页签 /
+   学生网格这些与触屏无关的样式放这里才是对的。
+   ⚠️ 加载顺序 base → components → roster → picker → touch → responsive：
+   这些规则原先在 touch.css（比 roster/picker 更靠后），搬家后层叠位置
+   提前了；每组的注释里写明"谁可能覆盖它 / 靠什么胜出"，touch.css 里也有
+   对应占位说明，别再搬回去。
+   （roster.css 只定义 .roster-* / .gb-* / .score-* 等新页专用类，与下面
+   这些选择器没有交集，所以不会覆盖它们；唯一要注意的是 .data-table 不能
+   和 .roster-table/.score-table 同时挂在一个元素上——见下方表格注释。）
+   ================================================================ */
+
+/* ---------------- 学生点选网格（原 touch.css 39-61 行） ----------------
+   记分页 31 人点选 + 点选式名单编辑（.roster-point）共用。
+   触屏加大尺寸在 touch.css 的 coarse 块里（原顺序更靠后，仍会胜出）。 */
+.student-grid {
+    display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 12px;
+}
+.student-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    min-height: 40px; padding: 6px 14px; border-radius: 12px;
+    border: 1.5px solid #e2e8f0; background: #f7fafc; color: #2d3748;
+    font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: 0.15s; touch-action: manipulation;
+}
+.student-chip:hover { background: #edf2f7; }
+.student-chip:active { transform: scale(0.97); }
+.student-chip.active {
+    background: linear-gradient(135deg, #1a365d, #2b6cb0);
+    color: #fff; border-color: transparent;
+    box-shadow: 0 4px 14px rgba(43,108,176,0.3);
+}
+.student-chip .chip-score {
+    font-size: 12px; font-weight: 700; color: #2b6cb0;
+    background: #ebf4ff; border-radius: 20px; padding: 1px 8px;
+}
+.student-chip.active .chip-score { background: rgba(255,255,255,0.22); color: #fff; }
+
+/* ---------------- 点选式名单编辑（原 touch.css 68-70 行） ----------------
+   触屏加大尺寸同样留在 touch.css 的 coarse 块里。 */
+.roster-point { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0; }
+.pick-list-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.pick-list-tabs .tab-btn { flex: none; padding: 8px 14px; font-size: 13px; }
+
+/* ---------------- 当前时段的班规条款：高亮 + 提示（原 touch.css 111-118 行） ----------------
+   纯配色/状态，与触屏无关。 */
+.preset-tag.period-hot {
+    background: linear-gradient(135deg, #1a365d, #2b6cb0);
+    color: #fff; border-color: transparent; font-weight: 700;
+    box-shadow: 0 3px 10px rgba(43,108,176,0.28);
+}
+.preset-tag.period-hot.negative { background: linear-gradient(135deg, #742a2a, #c53030); }
+.preset-period-hint { font-size: 12px; color: #2b6cb0; margin: 4px 0 6px; }
+
+/* ---------------- 表格（原 touch.css 120-130 行） ----------------
+   公式公示卡里的 .data-table 此前用了 5 个从未定义的类，导致表格没有边框；
+   .val-plus/.val-minus 是加减分色值。
+   .public-scroll .data-table 的 margin 归零在文件上方，靠更高优先级生效。
+   ⚠️ 本文件在 roster.css 之前加载：某个表格如果同时挂 .data-table 和
+   .roster-table（/ .score-table），后者的 th/td 规则会赢。新页的两张表
+   已只保留 .roster-table / .score-table，别再给它们加回 .data-table。
+   （.formula-cols 是 v6.6 前旧公示栏的两栏布局，已确认全仓库零引用，2026-10-27 技术债清理时删除） */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th, .data-table td { border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; }
+.data-table thead th { background: #f7fafc; font-weight: 700; color: #2d3748; }
+.data-table tbody tr:nth-child(even) { background: #fbfdff; }
+.sub-title { font-size: 14px; font-weight: 700; color: #2d3748; margin: 14px 0 6px; }
+.val-plus { color: #276749; font-weight: 700; }
+.val-minus { color: #c53030; font-weight: 700; }
+
+/* ---------------- 条款标签 / 学生按钮：一体机后排可读性（原 touch.css 132-135 行） ----------------
+   条款标签 14px、学生按钮 15px（原先 12/13px 太小）。
+   这两条必须在本文件里排在各自基础规则之后；coarse 下 touch.css 的
+   15/16/17px 覆盖仍然更靠后，所以依然胜出。 */
+.preset-tag { font-size: 14px; padding: 5px 10px; }
+.student-chip { font-size: 15px; }
+
+/* ---------------- 学生分组页签（原 touch.css 142-148 行） ----------------
+   「第1组 / 第2组 / …」筛选按钮；coarse 加大在 touch.css。 */
+.student-groups { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.group-chip {
+    padding: 5px 12px; border-radius: 999px; border: 1.5px solid #e2e8f0;
+    background: #fff; color: #4a5568; font-family: inherit; font-size: 13px;
+    font-weight: 600; cursor: pointer; touch-action: manipulation;
+}
+.group-chip.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+
+/* ---------------- 条款分类页签（原 touch.css 153-164 行） ----------------
+   「按时间段 / 加分 / 扣分 …」横向滚动条 + 两端渐隐；coarse 加大在 touch.css。 */
+.tag-cats { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin: 4px 0 8px; padding-bottom: 2px; }
+.tag-cats::-webkit-scrollbar { height: 4px; }
+.tag-cats {
+    -webkit-mask-image: linear-gradient(90deg, #000 90%, rgba(0,0,0,0.15) 100%);
+    mask-image: linear-gradient(90deg, #000 90%, rgba(0,0,0,0.15) 100%);
+}
+.tag-cat { flex: 0 0 auto; }
+.tag-cat {
+    padding: 4px 10px; border-radius: 999px; border: 1px solid #e2e8f0; background: #fff;
+    color: #4a5568; font-family: inherit; font-size: 12px; cursor: pointer; touch-action: manipulation;
+}
+.tag-cat.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
+
+/* ---------------- 隐藏态（原 touch.css 167-168 行） ----------------
+   时段/分类过滤时节点仍在 DOM 里（不改数据、不改规则），只是不显示。 */
+.preset-tag.is-hidden, .student-chip.is-hidden { display: none !important; }
+
+/* ---------------- 折叠卡（原 touch.css 170-178 行） ----------------
+   名单管理 / 公式公示用 <details class="card-fold">，自带 ▸/▾ 记号。 */
+.card-fold > summary {
+    cursor: pointer; font-weight: 700; font-size: 15px; color: #2d3748;
+    padding: 4px 0; list-style: none;
+}
+.card-fold > summary::-webkit-details-marker { display: none; }
+.card-fold > summary::before { content: '▸ '; color: #a0aec0; }
+.card-fold[open] > summary::before { content: '▾ '; }
+.card-fold > summary .fold-hint { font-weight: 400; font-size: 12px; color: #a0aec0; margin-left: 6px; }
+
+/* ---------------- 顶栏：危险操作与常用操作分开（原 touch.css 182-185 行） ----------------
+   .danger-gap 给危险按钮加分隔线；.btn-danger 平时降低不透明度防误点。
+   注意：base.css 的 .header-actions .btn-danger 只设背景色，这里只设 opacity，
+   且选择器带 button（优先级更高），搬来 components.css 后仍然只生效不冲突。 */
+.header-actions .danger-gap { margin-left: 14px; padding-left: 14px; border-left: 1px solid #e2e8f0; }
+.header-actions button.btn-danger { opacity: 0.75; }
+.header-actions button.btn-danger:hover { opacity: 1; }
+
+/* ---------------- 点名页就地记分（原 touch.css 187-196 行） ----------------
+   点完名直接在页面上加减分；大尺寸在 touch.css 的 coarse 块里。 */
+.picker-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; }
+.picker-quick .quick-label { font-size: 15px; color: #2d3748; font-weight: 600; margin-right: 4px; }
+.picker-quick .quick-btn {
+    min-height: 42px; min-width: 62px; border-radius: 10px; border: 1.5px solid #9ae6b4;
+    background: #f0fff4; color: #276749; font-family: inherit; font-size: 17px; font-weight: 700;
+    cursor: pointer; touch-action: manipulation;
+}
+.picker-quick .quick-btn.minus { border-color: #fed7d7; background: #fff5f5; color: #c53030; }
+.picker-quick .quick-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ---------------- 排行榜大屏模式（原 touch.css 201-205 行） ----------------
+   body.big-rank 是 1080p 投屏时的「双列 + 放大」开关，与触屏无关。
+   这里的选择器都比 .rank-item 基础规则更具体（body.big-rank …），
+   所以搬到 components.css 后依旧压过基础规则；.rank-item.pressing 的
+   按压态留在 touch.css，属性不重叠（背景 vs 内边距/字号）。 */
+body.big-rank #rankList { column-count: 2; column-gap: 18px; max-height: none; }
+body.big-rank .rank-item { break-inside: avoid; padding: 10px 12px; font-size: 17px; }
+body.big-rank .rank-item .name { font-size: 19px; }
+body.big-rank .rank-item span { font-size: 15px; }
+/* ===== styles/roster.css ===== */
+/* ================================================================
+   roster.css — 「👥 名单与分数」页
+   学生名单表格 / 小组看板 / 分数查看表
+   ================================================================ */
+
+/* ---------------- 通用工具条 ---------------- */
+.roster-toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0 10px;
+}
+.roster-search {
+    flex: 1 1 200px; min-width: 160px; max-width: 320px;
+    padding: 8px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px;
+    font-family: inherit; font-size: 14px; color: #2d3748; background: #fff;
+}
+.roster-search:focus { outline: none; border-color: #2b6cb0; box-shadow: 0 0 0 3px rgba(43,108,176,0.12); }
+
+/* ---------------- ① 学生名单 ---------------- */
+.roster-table-wrap { max-height: 520px; overflow: auto; border-radius: 10px; }
+.roster-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.roster-table th, .roster-table td { padding: 5px 6px; border-bottom: 1px solid #edf2f7; text-align: left; white-space: nowrap; }
+.roster-table thead th {
+    position: sticky; top: 0; z-index: 1; background: #f7fafc; color: #4a5568; font-weight: 600;
+}
+.roster-table tbody tr:hover { background: #f7fbff; }
+
+.link-btn {
+    background: none; border: none; padding: 2px 4px; border-radius: 6px;
+    font-family: inherit; font-size: inherit; color: #2b6cb0; cursor: pointer;
+    max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.link-btn:hover { background: #ebf4ff; text-decoration: underline; }
+.link-btn.strong { font-weight: 700; color: #2d3748; }
+
+.mini-select {
+    font-family: inherit; font-size: 12.5px; color: #2d3748;
+    padding: 3px 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;
+    max-width: 110px;
+}
+
+/* ---------------- ② 小组看板 ---------------- */
+.group-board {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px; margin-bottom: 10px;
+}
+.gb-card {
+    border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 10px 10px; background: #fcfdff;
+    display: flex; flex-direction: column; gap: 8px; min-width: 0;
+}
+.gb-card-ungrouped { background: #fffaf0; border-color: #feebc8; }
+.gb-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gb-name { font-weight: 700; font-size: 14px; color: #2d3748; }
+.gb-meta { font-size: 12px; color: #718096; }
+.gb-actions { margin-left: auto; display: flex; gap: 4px; }
+.gb-actions .btn-outline-sm, .gb-actions .btn-danger-sm { padding: 2px 8px; font-size: 12px; }
+.gb-members { display: flex; flex-wrap: wrap; gap: 5px; }
+.gb-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 30px; cursor: pointer;
+    border: 1.5px solid #e2e8f0; background: #fff; color: #2d3748;
+    font-family: inherit; font-size: 13px; transition: 0.15s;
+}
+.gb-chip b { font-size: 12px; color: #2b6cb0; font-weight: 700; }
+.gb-chip:hover { border-color: #90cdf4; background: #ebf8ff; }
+.gb-chip.on { border-color: #2b6cb0; background: #2b6cb0; color: #fff; }
+.gb-chip.on b { color: #fff; }
+.gb-move {
+    margin-top: auto; padding: 6px 10px; border-radius: 9px; cursor: pointer;
+    border: 1.5px dashed #90cdf4; background: #f0f7ff; color: #2b6cb0;
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+}
+.gb-move:hover:not(:disabled) { background: #2b6cb0; color: #fff; border-style: solid; }
+.gb-move:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------------- ③ 分数查看 ---------------- */
+.score-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.score-table th, .score-table td { padding: 6px 8px; border-bottom: 1px solid #edf2f7; text-align: left; }
+.score-table thead th { background: #f7fafc; color: #4a5568; font-weight: 600; white-space: nowrap; }
+.score-table th.sortable { cursor: pointer; user-select: none; }
+.score-table th.sortable:hover { color: #2b6cb0; background: #ebf4ff; }
+.score-row { cursor: pointer; }
+.score-row:hover { background: #f7fbff; }
+.score-row.expanded { background: #ebf4ff; }
+.score-detail td { background: #f7fafc; padding: 8px 10px; }
+.score-log-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.score-log {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 20px;
+    padding: 3px 10px; font-size: 12px; color: #2d3748;
+}
+.score-log i { color: #a0aec0; font-style: normal; }
+
+/* 这两张表**不带** .data-table：新页要的是"只有底边线 + 吸顶表头"的紧凑表，
+   而不是通用表格的四周框线 + 斑马纹。所以本文件必须自己把表格基础样式写全。 */
+.roster-table, .score-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.roster-table th, .roster-table td,
+.score-table th, .score-table td { text-align: left; }
+
+/* ---------------- 触屏：字号/点按区域放大（替代原 touch.css 里针对 .data-table 的那条） ---------------- */
+@media (any-pointer: coarse), (pointer: coarse) {
+    .roster-table th, .roster-table td,
+    .score-table th, .score-table td { font-size: 14px; padding: 7px 8px; }
+    .gb-chip { padding: 6px 12px; font-size: 14px; }
+    .gb-move { padding: 9px 12px; }
+    .mini-select { padding: 5px 8px; font-size: 13.5px; }
+    .link-btn { padding: 4px 6px; }
+}
+
+@media (max-width: 1024px) {
+    .roster-table-wrap { max-height: 420px; }
+}
 /* ===== styles/picker.css ===== */
 /* ================================================================
    picker.css — 顶部标签页 / 随机点名 / 悬浮球
@@ -600,6 +861,25 @@ body {
 /* ================================================================
    touch.css — 触摸屏 / 无键盘设备适配（v6.3 新增）
    原则：只新增规则，不改动 base/components/picker 里的任何既有样式。
+
+   ⚠️ 技术债 R1（本次清理）：本文件历史上被当成"通用组件垃圾桶"，里面
+   塞了很多与触屏无关的通用组件样式（学生点选网格、表格/公式列、折叠卡、
+   条款分类页签、学生分组页签、隐藏态、顶栏危险按钮、就地记分、排行榜
+   大屏）。这些已整体搬到 components.css，本文件只在原位置留占位说明。
+   本文件现在只保留两类规则：
+     1) 真正的触屏/指针适配：触摸手势（touch-action）、点按高亮，以及
+        所有 @media (any-pointer: coarse), (pointer: coarse) 的尺寸放大；
+     2) 因为"没有键盘 / 触屏长按手势"才存在的交互控件，共三个，理由如下：
+        · .score-stepper / .step-btn —— 无键盘时加减分数的替代输入控件；
+        · .picker-stage.tappable   —— 无键盘时点舞台即可开始/结束点名；
+        · .rank-item.pressing      —— 排行榜长按快捷加分时的按压反馈。
+        它们在桌面端也可见/可点，但样式存在的原因是触屏交互（不是通用
+        组件外观），所以留在本文件；其余"只是恰好用在触屏页面上"的样式
+        一律搬走。
+   加载顺序：base → components → roster → picker → touch → responsive。
+   本文件里的 coarse 覆盖仍然排在 components.css 对应基础规则之后，
+   所以"触屏放大"依旧胜出；搬家时已逐条核对过不会被 roster/picker/
+   responsive 覆盖（roster.css 只定义新页专用类，与这里的选择器无交集）。
    ================================================================ */
 
 /* 去掉双击缩放的 300ms 延迟与误缩放；点按反馈更跟手 */
@@ -615,7 +895,7 @@ button,
 }
 button { -webkit-tap-highlight-color: rgba(43,108,176,0.12); }
 
-/* ---------------- 分数步进：不调键盘也能加减分（新增控件） ---------------- */
+/* ---------------- 1) 分数步进：不调键盘也能加减分（保留：触屏替代输入） ---------------- */
 .score-stepper { display: flex; gap: 8px; margin-top: 8px; }
 .score-stepper .step-btn {
     flex: 1; min-height: 42px; border: 1.5px solid #cbd5e0; background: #fff;
@@ -631,53 +911,32 @@ button { -webkit-tap-highlight-color: rgba(43,108,176,0.12); }
     flex: none; align-self: center; font-size: 12px; color: #a0aec0; padding-left: 2px;
 }
 
-/* 点名舞台可点（无键盘时的主要入口） */
+/* ---------------- 2) 点名舞台可点（保留：无键盘时的主要入口） ---------------- */
 .picker-stage.tappable { cursor: pointer; }
 .picker-stage.tappable:active { box-shadow: inset 0 0 0 2px rgba(43,108,176,0.25); }
 
-/* 学生按钮网格（新增控件；两个下拉框保持原样） */
-.student-grid {
-    display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 12px;
-}
-.student-chip {
-    display: inline-flex; align-items: center; gap: 8px;
-    min-height: 40px; padding: 6px 14px; border-radius: 12px;
-    border: 1.5px solid #e2e8f0; background: #f7fafc; color: #2d3748;
-    font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
-    transition: 0.15s; touch-action: manipulation;
-}
-.student-chip:hover { background: #edf2f7; }
-.student-chip:active { transform: scale(0.97); }
-.student-chip.active {
-    background: linear-gradient(135deg, #1a365d, #2b6cb0);
-    color: #fff; border-color: transparent;
-    box-shadow: 0 4px 14px rgba(43,108,176,0.3);
-}
-.student-chip .chip-score {
-    font-size: 12px; font-weight: 700; color: #2b6cb0;
-    background: #ebf4ff; border-radius: 20px; padding: 1px 8px;
-}
-.student-chip.active .chip-score { background: rgba(255,255,255,0.22); color: #fff; }
+/* ---------------- 3) 学生按钮网格 ----------------
+   基础样式（.student-grid / .student-chip / .chip-score）已搬到
+   components.css（原 39-61 行）；这里只留 coarse 指针下的加大。 */
 @media (any-pointer: coarse), (pointer: coarse) {
     .student-chip { min-height: 50px; padding: 8px 16px; font-size: 16px; }
     .student-chip .chip-score { font-size: 13px; }
 }
 
-/* 点选式名单编辑（③a，新增控件） */
-.roster-point { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0; }
-.pick-list-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.pick-list-tabs .tab-btn { flex: none; padding: 8px 14px; font-size: 13px; }
+/* ---------------- 4) 点选式名单编辑 ----------------
+   基础样式（.roster-point / .pick-list-tabs / .tab-btn）已搬到
+   components.css（原 68-70 行）；这里只留 coarse 加大。 */
 @media (any-pointer: coarse), (pointer: coarse) {
     .pick-list-tabs .tab-btn { min-height: 44px; padding: 10px 16px; font-size: 15px; }
 }
 
-/* 排行榜长按快捷加分：按住时给个明确的视觉反馈（新增，不覆盖原有 .rank-item 样式） */
+/* ---------------- 5) 排行榜长按快捷加分（保留：触屏长按手势的按压反馈） ---------------- */
 .rank-item.pressing {
     background: #ebf4ff !important;
     box-shadow: inset 0 0 0 2px rgba(43,108,176,0.35);
 }
 
-/* ---------------- 触摸设备：一切可点区域加大到 44px 以上 ---------------- */
+/* ---------------- 6) 触摸设备：一切可点区域加大到 44px 以上 ---------------- */
 @media (any-pointer: coarse), (pointer: coarse) {
     .btn { min-height: 48px; padding: 13px 26px; font-size: 16px; }
     .btn-sm { min-height: 40px; padding: 9px 18px; font-size: 14px; }
@@ -707,101 +966,55 @@ button { -webkit-tap-highlight-color: rgba(43,108,176,0.12); }
     .modal-header .close-btn { font-size: 34px; width: 46px; height: 46px; }
 }
 
-/* 当前时段的班规条款：高亮并带 ⏰ 前缀，一眼能找到 */
-.preset-tag.period-hot {
-    background: linear-gradient(135deg, #1a365d, #2b6cb0);
-    color: #fff; border-color: transparent; font-weight: 700;
-    box-shadow: 0 3px 10px rgba(43,108,176,0.28);
-}
-.preset-tag.period-hot.negative { background: linear-gradient(135deg, #742a2a, #c53030); }
-.preset-period-hint { font-size: 12px; color: #2b6cb0; margin: 4px 0 6px; }
+/* ---------------- 7) 当前时段的班规条款高亮 ----------------
+   .preset-tag.period-hot / .preset-period-hint 已搬到 components.css
+   （原 111-118 行），纯配色与触屏无关。 */
 
-/* ---------- UI 精简（v6.5）：条款分类 / 隐藏态 / 折叠卡 / 公式卡样式 ---------- */
-/* 1) 公式卡此前用了 5 个从未定义的类，导致表格没有边框 */
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th, .data-table td { border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; }
-.data-table thead th { background: #f7fafc; font-weight: 700; color: #2d3748; }
-.data-table tbody tr:nth-child(even) { background: #fbfdff; }
-.sub-title { font-size: 14px; font-weight: 700; color: #2d3748; margin: 14px 0 6px; }
-.formula-cols { display: flex; gap: 16px; flex-wrap: wrap; }
-.formula-cols > div { flex: 1 1 260px; min-width: 0; }
-.val-plus { color: #276749; font-weight: 700; }
-.val-minus { color: #c53030; font-weight: 700; }
+/* ---------------- 8) 表格 / 公式列 / 折叠卡 / 隐藏态 ----------------
+   原 120-130 行的 .data-table / .sub-title / .formula-cols /
+   .val-plus / .val-minus 已搬到 components.css；
+   原 167-168 行的 .is-hidden 隐藏态、原 170-178 行的 .card-fold 折叠卡
+   也已搬到 components.css（都是通用组件）。 */
 
-/* 2) 条款分类页签 */
-/* 一体机后排可读性：条款标签 14px、学生按钮 15/16px（原先 12/13px 太小） */
-.preset-tag { font-size: 14px; padding: 5px 10px; }
-.student-chip { font-size: 15px; }
+/* ---------------- 9) 条款分类页签：一体机后排可读性字号 ----------------
+   基础字号（.preset-tag 14px / .student-chip 15px，原 132-135 行）已搬到
+   components.css；这里只留 coarse 指针下的进一步放大。 */
 @media (any-pointer: coarse), (pointer: coarse) {
     .preset-tag { font-size: 15px; padding: 8px 12px; }
     .student-chip { font-size: 17px; }
     .data-table th, .data-table td { font-size: 14px; }
 }
 
-.student-groups { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
-.group-chip {
-    padding: 5px 12px; border-radius: 999px; border: 1.5px solid #e2e8f0;
-    background: #fff; color: #4a5568; font-family: inherit; font-size: 13px;
-    font-weight: 600; cursor: pointer; touch-action: manipulation;
-}
-.group-chip.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+/* ---------------- 10) 学生分组页签 ----------------
+   基础样式（.student-groups / .group-chip，原 142-148 行）已搬到
+   components.css；这里只留 coarse 加大。 */
 @media (any-pointer: coarse), (pointer: coarse) {
     .group-chip { min-height: 44px; padding: 10px 16px; font-size: 15px; }
 }
 
-.tag-cats { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin: 4px 0 8px; padding-bottom: 2px; }
-.tag-cats::-webkit-scrollbar { height: 4px; }
-.tag-cats {
-    -webkit-mask-image: linear-gradient(90deg, #000 90%, rgba(0,0,0,0.15) 100%);
-    mask-image: linear-gradient(90deg, #000 90%, rgba(0,0,0,0.15) 100%);
-}
-.tag-cat { flex: 0 0 auto; }
-.tag-cat {
-    padding: 4px 10px; border-radius: 999px; border: 1px solid #e2e8f0; background: #fff;
-    color: #4a5568; font-family: inherit; font-size: 12px; cursor: pointer; touch-action: manipulation;
-}
-.tag-cat.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; font-weight: 700; }
+/* ---------------- 11) 条款分类页签 ----------------
+   基础样式（.tag-cats / .tag-cat，原 153-164 行）已搬到
+   components.css；这里只留 coarse 加大。 */
 @media (any-pointer: coarse), (pointer: coarse) { .tag-cat { padding: 8px 14px; font-size: 14px; } }
 
-/* 3) 隐藏态：节点仍在 DOM 里（不改数据、不改规则），只是不显示 */
-.preset-tag.is-hidden, .student-chip.is-hidden { display: none !important; }
+/* ---------------- 12) 记分提交区 ----------------
+   原 180 行注记：记分提交区的布局规则（.submit-row 等）早在 v6.5 就搬到
+   components.css 了（那里才是通用组件该待的地方）。 */
 
-/* 4) 折叠卡（名单管理 / 公式公示） */
-.card-fold > summary {
-    cursor: pointer; font-weight: 700; font-size: 15px; color: #2d3748;
-    padding: 4px 0; list-style: none;
-}
-.card-fold > summary::-webkit-details-marker { display: none; }
-.card-fold > summary::before { content: '▸ '; color: #a0aec0; }
-.card-fold[open] > summary::before { content: '▾ '; }
-.card-fold > summary .fold-hint { font-weight: 400; font-size: 12px; color: #a0aec0; margin-left: 6px; }
+/* ---------------- 13) 顶栏危险操作分隔 ----------------
+   .header-actions .danger-gap / button.btn-danger 的透明度已搬到
+   components.css（原 182-185 行）。 */
 
-/* 4b) 记分提交区的布局规则已搬到 components.css（那里才是通用组件该待的地方） */
-
-/* 5) 顶栏：危险操作与常用操作分开，避免误点 */
-.header-actions .danger-gap { margin-left: 14px; padding-left: 14px; border-left: 1px solid #e2e8f0; }
-.header-actions button.btn-danger { opacity: 0.75; }
-.header-actions button.btn-danger:hover { opacity: 1; }
-
-/* 点名页就地记分 */
-.picker-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; }
-.picker-quick .quick-label { font-size: 15px; color: #2d3748; font-weight: 600; margin-right: 4px; }
-.picker-quick .quick-btn {
-    min-height: 42px; min-width: 62px; border-radius: 10px; border: 1.5px solid #9ae6b4;
-    background: #f0fff4; color: #276749; font-family: inherit; font-size: 17px; font-weight: 700;
-    cursor: pointer; touch-action: manipulation;
-}
-.picker-quick .quick-btn.minus { border-color: #fed7d7; background: #fff5f5; color: #c53030; }
-.picker-quick .quick-btn:disabled { opacity: 0.45; cursor: default; }
+/* ---------------- 14) 点名页就地记分 ----------------
+   基础样式（.picker-quick / .quick-label / .quick-btn，原 187-196 行）已搬到
+   components.css；这里只留 coarse 加大。 */
 @media (any-pointer: coarse), (pointer: coarse) {
     .picker-quick .quick-btn { min-height: 56px; min-width: 76px; font-size: 20px; }
 }
 
-/* 排行榜大屏（本机 1080p：双列 + 放大） */
-body.big-rank #rankList { column-count: 2; column-gap: 18px; max-height: none; }
-body.big-rank .rank-item { break-inside: avoid; padding: 10px 12px; font-size: 17px; }
-body.big-rank .rank-item .name { font-size: 19px; }
-body.big-rank .rank-item span { font-size: 15px; }
+/* ---------------- 15) 排行榜大屏模式 ----------------
+   body.big-rank 的双列 + 放大（原 201-205 行）是 1080p 投屏布局，
+   与触屏无关，已搬到 components.css。 */
 /* ===== styles/responsive.css ===== */
 /* ================================================================
    responsive.css — 响应式断点（与 v5.1 的断点一致）
@@ -860,11 +1073,12 @@ body.big-rank .rank-item span { font-size: 15px; }
     <div class="container" id="app">
         <nav class="app-nav">
             <button type="button" class="app-nav-btn active" data-view="manage">📋 管理系统</button>
+            <button type="button" class="app-nav-btn" data-view="roster">👥 名单与分数</button>
             <button type="button" class="app-nav-btn" data-view="picker">🎲 随机点名</button>
         </nav>
 
         <header class="header">
-            <h1>📚 班级积分系统 <small>自主管理 · 积分系统 v6.8</small></h1>
+            <h1>📚 班级积分系统 <small>自主管理 · 积分系统 v6.9</small></h1>
             <div class="header-actions">
                 <span class="lock-status" id="lockStatusBtn" title="点击锁定/解锁">
                     <span class="dot unlocked" id="lockDot"></span>
@@ -1011,6 +1225,50 @@ body.big-rank .rank-item span { font-size: 15px; }
             </div>
 
             <input type="file" id="fileInput" accept=".json,application/json" style="display:none" />
+
+            <!-- 加扣分公式与公示（原来由 features/formula.js 运行时 append，现按 R4 改成静态占位） -->
+            <div class="card" id="formulaCard">
+                <details class="card-fold">
+                    <summary>📐 加扣分公式与公示<span class="fold-hint">周会/家长会前展开，日常不用看</span></summary>
+                    <div class="setting-note" id="formulaNote"></div>
+                    <div id="formulaToday"></div>
+                    <div id="formulaRank"></div>
+                    <div id="formulaSolidarity"></div>
+                </details>
+            </div>
+        </section>
+
+        <section id="viewRoster" hidden>
+            <div class="grid-2">
+                <div class="card" id="cardStudents">
+                    <div class="card-title">👥 学生名单 <span class="badge" id="rosterCount">0 人</span></div>
+                    <div class="roster-toolbar">
+                        <input type="search" id="rosterSearch" class="roster-search" placeholder="搜索姓名 / 小组…" />
+                        <button type="button" class="btn-outline-sm" id="rosterAddBtn">＋ 添加学生</button>
+                        <button type="button" class="btn-outline-sm" id="rosterBulkBtn">📋 批量粘贴</button>
+                    </div>
+                    <div class="roster-table-wrap" id="rosterTableWrap"></div>
+                    <div class="setting-note">点姓名可改名（分数与记录会跟着走）；改下拉框即换组；点「岗位 / 职务 / 寝室」可直接修改。</div>
+                </div>
+
+                <div class="card" id="cardGroupBoard">
+                    <div class="card-title">🧩 小组调整 <span class="badge" id="groupBoardHint">点一个学生 → 点目标组</span></div>
+                    <div class="group-board" id="groupBoard"></div>
+                    <div class="roster-toolbar">
+                        <button type="button" class="btn-outline-sm" id="groupAddBtn">＋ 新建小组</button>
+                        <span class="text-muted">换组只改归属，分数不变</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" id="cardScores">
+                <div class="card-title">📊 分数查看 <span class="badge">个人分 + 小组分 + 寝室分 = 总分</span></div>
+                <div class="roster-toolbar">
+                    <input type="search" id="scoreSearch" class="roster-search" placeholder="搜索姓名 / 小组…" />
+                    <span class="text-muted">点表头排序；点一行展开 TA 的最近记录</span>
+                </div>
+                <div id="scoreTableWrap"></div>
+            </div>
         </section>
 
         <section id="viewPicker" hidden>
@@ -1200,7 +1458,7 @@ body.big-rank .rank-item span { font-size: 15px; }
     </div>
 
     <script>
-/* 班级积分系统_v6.8 v6.8 — 由 tools/build.mjs 从 src/ 自动生成，请勿直接修改本文件 */
+/* 班级积分系统_v6.9 v6.9 — 由 tools/build.mjs 从 src/ 自动生成，请勿直接修改本文件 */
 (function () {
 'use strict';
 
@@ -2153,7 +2411,7 @@ function periodHint(now) {
 // 纯数据，不触碰 DOM，可在 Node 中直接测试。
 // ================================================================
 
-const APP_VERSION = 'v6.8';
+const APP_VERSION = 'v6.9';
 const APP_NAME = '班级积分系统';
 
 // 存储键：v6 写入新键；v5 旧键只读保留，永不覆盖（回退保险）
@@ -2294,12 +2552,15 @@ function getDefaultData() {
   return data;
 }
 
-/** 界面外壳：两个视图（管理系统 / 随机点名） */
+/** 界面外壳：三个视图（管理系统 / 名单与分数 / 随机点名） */
 const VIEW_MANAGE = 'manage';
+const VIEW_ROSTER = 'roster';
 const VIEW_PICKER = 'picker';
 
 function normalizeView(name) {
-  return name === VIEW_PICKER ? VIEW_PICKER : VIEW_MANAGE;
+  if (name === VIEW_PICKER) return VIEW_PICKER;
+  if (name === VIEW_ROSTER) return VIEW_ROSTER;
+  return VIEW_MANAGE;
 }
 
 /** 是否已设置操作口令（口令为明文，仅作课堂防误触，不构成安全边界） */
@@ -3053,6 +3314,274 @@ function ungroupedStudents(data) {
   return Object.entries(data.students || {})
     .filter(([, info]) => !info.group)
     .map(([name]) => name);
+}
+
+/* ===== js/core/roster-edit.js ===== */
+// ================================================================
+// core/roster-edit.js — 「名单与分数」页面用的纯函数（可在 Node 里单测）
+//
+// 这里只做数据变换，不碰 DOM、不写存储：调用方负责 App.save / rebuild / render。
+// 原则：改名单不能丢分。所以重命名/换组只动"归属"，分数原样保留；
+//       只有"删除学生"会连同这个人的历史记录一起删（否则会留下指向不存在学生的记录）。
+// ================================================================
+
+/** 把粘贴的名单文本拆成姓名数组：一行一个，逗号/顿号/空格/分号都算分隔，忽略 # 注释与空行 */
+function rosterParseNames(text) {
+  const raw = String(text || '');
+  const names = [];
+  const seen = new Set();
+  raw.split(/\r?\n/).forEach(function (line) {
+    const clean = line.replace(/#.*$/, '');
+    clean.split(/[,，、;；\s]+/).forEach(function (piece) {
+      const name = piece.trim();
+      if (!name) return;
+      if (seen.has(name)) return;
+      seen.add(name);
+      names.push(name);
+    });
+  });
+  return names;
+}
+
+function rosterRebuildStudentKey(data, from, to, student) {
+  // 保持原有键顺序，避免名单顺序突然变了
+  const next = {};
+  Object.keys(data.students || {}).forEach(function (n) {
+    if (n === from) next[to] = student;
+    else next[n] = data.students[n];
+  });
+  data.students = next;
+}
+
+function rosterRenameInList(list, from, to) {
+  return (list || []).map(function (x) { return x === from ? to : x; });
+}
+
+/** 操作记录 / 同步 op 里的个人对象名跟着改（历史记录才不会指向不存在的人） */
+function rosterRenameInHistory(data, from, to) {
+  (data.logs || []).forEach(function (log) {
+    if (log && log.type === 'student' && log.target === from) log.target = to;
+  });
+  (data.ops || []).forEach(function (op) {
+    if (op && op.type === 'student' && op.target === from) op.target = to;
+  });
+}
+
+function rosterAddStudent(data, name, groupName) {
+  const n = String(name || '').trim();
+  if (!n) return { ok: false, error: '姓名不能为空' };
+  if (data.students[n]) return { ok: false, error: '已经有「' + n + '」了' };
+  data.students[n] = { score: 0, group: groupName || '', role: '', classRole: '', dorm: '' };
+  if (groupName && data.groups[groupName]) {
+    data.groups[groupName] = (data.groups[groupName] || []).concat([n]);
+  }
+  return { ok: true, name: n };
+}
+
+function rosterRenameStudent(data, from, to) {
+  const t = String(to || '').trim();
+  if (!t) return { ok: false, error: '新姓名不能为空' };
+  if (!data.students[from]) return { ok: false, error: '找不到「' + from + '」' };
+  if (t === from) return { ok: true, unchanged: true };
+  if (data.students[t]) return { ok: false, error: '已经有「' + t + '」了' };
+
+  const st = data.students[from];
+  // 一步重建：把旧键换成新键（保持原键顺序），再把旧键删掉
+  rosterRebuildStudentKey(data, from, t, st);
+  delete data.students[from];
+
+  Object.keys(data.groups || {}).forEach(function (g) {
+    data.groups[g] = rosterRenameInList(data.groups[g], from, t);
+  });
+  Object.keys(data.dormitories || {}).forEach(function (d) {
+    data.dormitories[d] = rosterRenameInList(data.dormitories[d], from, t);
+  });
+  if (data.picker && Array.isArray(data.picker.roster)) {
+    data.picker.roster = rosterRenameInList(data.picker.roster, from, t);
+  }
+  rosterRenameInHistory(data, from, t);
+  return { ok: true, name: t };
+}
+
+/**
+ * 删除学生。会一起清掉：小组/寝室名单里的他、点名名单里的他、他的操作记录与同步 op。
+ * （留着指向"已不存在的人"的记录会让公示、每日明细、撤销都出现幽灵数据）
+ */
+function rosterRemoveStudent(data, name) {
+  if (!data.students[name]) return { ok: false, error: '找不到「' + name + '」' };
+  const score = toInt(data.students[name].score, 0);
+  delete data.students[name];
+  Object.keys(data.groups || {}).forEach(function (g) {
+    data.groups[g] = (data.groups[g] || []).filter(function (x) { return x !== name; });
+  });
+  Object.keys(data.dormitories || {}).forEach(function (d) {
+    data.dormitories[d] = (data.dormitories[d] || []).filter(function (x) { return x !== name; });
+  });
+  if (data.picker && Array.isArray(data.picker.roster)) {
+    data.picker.roster = data.picker.roster.filter(function (x) { return x !== name; });
+  }
+  const beforeLogs = (data.logs || []).length;
+  data.logs = (data.logs || []).filter(function (log) {
+    return !(log && log.type === 'student' && log.target === name);
+  });
+  const beforeOps = (data.ops || []).length;
+  data.ops = (data.ops || []).filter(function (op) {
+    return !(op && op.type === 'student' && op.target === name);
+  });
+  return {
+    ok: true,
+    name: name,
+    score: score,
+    removedLogs: beforeLogs - data.logs.length,
+    removedOps: beforeOps - data.ops.length
+  };
+}
+
+/** 把学生换到另一个组（只改归属，分数不动） */
+function rosterMoveStudent(data, name, toGroup) {
+  const st = data.students[name];
+  if (!st) return { ok: false, error: '找不到「' + name + '」' };
+  const target = String(toGroup || '');
+  if (target && !data.groups[target]) return { ok: false, error: '没有「' + target + '」这个组' };
+  if ((st.group || '') === target) return { ok: true, unchanged: true };
+
+  const from = st.group || '';
+  if (from && data.groups[from]) {
+    data.groups[from] = (data.groups[from] || []).filter(function (x) { return x !== name; });
+  }
+  if (target) data.groups[target] = (data.groups[target] || []).concat([name]);
+  st.group = target;
+  return { ok: true, from: from, to: target };
+}
+
+/** 改学生的一个字段（role / classRole / dorm），空字符串表示清空 */
+function rosterSetStudentField(data, name, field, value) {
+  const st = data.students[name];
+  if (!st) return { ok: false, error: '找不到「' + name + '」' };
+  if (['role', 'classRole', 'dorm'].indexOf(field) < 0) return { ok: false, error: '不支持的字段：' + field };
+  st[field] = String(value || '').trim();
+  return { ok: true };
+}
+
+function rosterAddGroup(data, name) {
+  const g = String(name || '').trim();
+  if (!g) return { ok: false, error: '组名不能为空' };
+  if (data.groups[g]) return { ok: false, error: '已经有「' + g + '」了' };
+  data.groups[g] = [];
+  if (!data.groupAdjustments) data.groupAdjustments = {};
+  data.groupAdjustments[g] = 0;
+  return { ok: true, name: g };
+}
+
+function rosterRenameGroup(data, from, to) {
+  const t = String(to || '').trim();
+  if (!t) return { ok: false, error: '新组名不能为空' };
+  if (!data.groups[from]) return { ok: false, error: '找不到「' + from + '」' };
+  if (t === from) return { ok: true, unchanged: true };
+  if (data.groups[t]) return { ok: false, error: '已经有「' + t + '」了' };
+
+  const next = {};
+  Object.keys(data.groups).forEach(function (g) { next[g === from ? t : g] = data.groups[g]; });
+  data.groups = next;
+  if (data.groupAdjustments && Object.prototype.hasOwnProperty.call(data.groupAdjustments, from)) {
+    data.groupAdjustments[t] = data.groupAdjustments[from];
+    delete data.groupAdjustments[from];
+  }
+  Object.keys(data.students || {}).forEach(function (n) {
+    const st = data.students[n];
+    if (st && st.group === from) st.group = t;
+  });
+  (data.logs || []).forEach(function (log) {
+    if (log && log.type === 'group' && log.target === from) log.target = t;
+  });
+  (data.ops || []).forEach(function (op) {
+    if (op && op.type === 'group' && op.target === from) op.target = t;
+  });
+  return { ok: true, name: t };
+}
+
+/** 删除小组：成员变成「未分组」，该组的小组整体加减分一并删除（与现有名单编辑一致） */
+function rosterRemoveGroup(data, name) {
+  if (!data.groups[name]) return { ok: false, error: '找不到「' + name + '」' };
+  const members = (data.groups[name] || []).slice();
+  delete data.groups[name];
+  let droppedAdjust = 0;
+  if (data.groupAdjustments && Object.prototype.hasOwnProperty.call(data.groupAdjustments, name)) {
+    droppedAdjust = toInt(data.groupAdjustments[name], 0);
+    delete data.groupAdjustments[name];
+  }
+  members.forEach(function (n) {
+    const st = data.students[n];
+    if (st && st.group === name) st.group = '';
+  });
+  return { ok: true, name: name, members: members, droppedAdjust: droppedAdjust };
+}
+
+/** 学生本周个人加减分（周二…周一按 formulaWeekStart 口径，与公示栏一致） */
+function rosterWeekDelta(data, name, now) {
+  const start = formulaWeekStart(now).getTime();
+  const end = start + 7 * 24 * 3600 * 1000;
+  let sum = 0;
+  (data.ops || []).forEach(function (op) {
+    if (!op || op.kind !== 'score') return;
+    if (op.type !== 'student' || op.target !== name) return;
+    if (op.ts < start || op.ts >= end) return;
+    sum += toInt(op.delta, 0);
+  });
+  return sum;
+}
+
+/** 「名单与分数」页的表格行：一个人一行，列齐全，按总分降序 */
+function buildRosterRows(data, scoring, now) {
+  const names = Object.keys((data && data.students) || {});
+  const rows = names.map(function (name) {
+    const st = data.students[name] || {};
+    const group = st.group || '';
+    return {
+      name: name,
+      group: group,
+      role: st.role || '',
+      classRole: st.classRole || '',
+      dorm: scoring ? scoring.studentDorm(name) : '',
+      base: scoring ? scoring.baseScore(name) : toInt(st.score, 0),
+      groupAdj: (scoring && group) ? scoring.groupAdjustment(group) : 0,
+      dormAdj: (scoring && st.dorm) ? scoring.dormAdjustment(st.dorm) : 0,
+      total: scoring ? scoring.personalTotal(name) : toInt(st.score, 0),
+      week: rosterWeekDelta(data, name, now),
+      logs: (data.logs || []).filter(function (l) { return l && l.type === 'student' && l.target === name; }).length
+    };
+  });
+  rows.sort(function (a, b) { return b.total - a.total || a.name.localeCompare(b.name, 'zh-CN'); });
+  return rows;
+}
+
+/** 小组看板数据：每组人数 / 成员总分之和 / 小组整体加减分 / 合计 */
+function buildGroupBoard(data, scoring) {
+  const groups = Object.keys((data && data.groups) || {}).sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); });
+  return groups.map(function (g) {
+    const members = (data.groups[g] || []).slice();
+    let sum = 0;
+    members.forEach(function (n) {
+      sum += scoring ? (scoring.baseScore(n) + ((scoring.studentDorm(n) ? scoring.dormAdjustment(scoring.studentDorm(n)) : 0))) : toInt((data.students[n] || {}).score, 0);
+    });
+    const adjust = toInt((data.groupAdjustments || {})[g], 0);
+    return {
+      name: g,
+      adjust: adjust,
+      memberBaseSum: sum,
+      memberTotalSum: sum + members.length * adjust,
+      count: members.length,
+      members: members.sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); })
+    };
+  });
+}
+
+/** 未分组的散人（小组看板要单独显示，否则这些人等于"消失"了） */
+function buildUngrouped(data) {
+  return Object.keys((data && data.students) || {}).filter(function (n) {
+    const g = (data.students[n] || {}).group;
+    return !g || !(data.groups || {})[g];
+  }).sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); });
 }
 
 /* ===== js/core/logs.js ===== */
@@ -4759,6 +5288,440 @@ function renderRosterPoint() {
     + '改完请点上面的「✅ 应用小组」生效（分数会保留）。');
 }
 
+/* ===== js/features/roster-page.js ===== */
+// ================================================================
+// features/roster-page.js — 「👥 名单与分数」独立页
+//
+// 三块内容：
+//   ① 学生名单表格：改名 / 换组（下拉）/ 改岗位职务寝室 / 删除 / 新增 / 批量粘贴
+//   ② 小组看板：点学生 → 点目标组「移到这里」即可换组；可新建 / 重命名 / 删除小组
+//   ③ 分数查看：搜索 + 点表头排序 + 点一行展开最近记录
+//
+// 规矩：所有写操作都走 withAuth + guardWrite，改完 App.save/rebuild/render；
+//      数据变换全在 core/roster-edit.js（纯函数，有单测），这里只负责画与绑事件。
+// ================================================================
+
+const ROSTER_SORTS = ['total', 'name', 'group', 'base', 'week'];
+
+let rosterPageSelected = '';      // 小组看板里选中的学生
+let rosterPageSortKey = 'total';  // 分数表排序键
+let rosterPageSortDesc = true;    // 排序方向
+let rosterPageExpanded = '';      // 分数表展开记录的学生
+
+function rosterPageSign(v) {
+  return v > 0 ? '+' + v : String(v);
+}
+
+/** 统一提交：写完保存 + 重建计分索引 + 重绘 */
+function rosterPageCommit() {
+  App.save();
+  App.rebuild();
+  App.render();
+}
+
+function rosterPageGroups() {
+  return Object.keys((App.data && App.data.groups) || {});
+}
+
+// ---------------- ① 学生名单 ----------------
+
+function rosterPageRenderStudents() {
+  const wrap = $('rosterTableWrap');
+  if (!wrap) return;
+  const search = (($('rosterSearch') && $('rosterSearch').value) || '').trim();
+  const all = buildRosterRows(App.data, App.scoring, Date.now());
+  const rows = search
+    ? all.filter(function (r) { return r.name.indexOf(search) >= 0 || (r.group || '').indexOf(search) >= 0; })
+    : all;
+  const badge = $('rosterCount');
+  if (badge) badge.textContent = search ? (rows.length + ' / ' + all.length + ' 人') : (all.length + ' 人');
+
+  const groups = rosterPageGroups();
+  let html = '<table class="roster-table"><thead><tr>' +
+    '<th>姓名</th><th>小组</th><th>岗位</th><th>职务</th><th>寝室</th><th>个人分</th><th>操作</th>' +
+    '</tr></thead><tbody>';
+
+  rows.forEach(function (r) {
+    const gOpts = ['未分组'].concat(groups).map(function (g) {
+      const val = g === '未分组' ? '' : g;
+      return '<option value="' + esc(val) + '"' + ((r.group || '') === val ? ' selected' : '') + '>' + esc(g) + '</option>';
+    }).join('');
+    html += '<tr data-row="' + esc(r.name) + '">' +
+      '<td><button type="button" class="link-btn strong" data-act="rename" data-name="' + esc(r.name) + '" title="点击改名">' + esc(r.name) + '</button></td>' +
+      '<td><select class="mini-select" data-move="' + esc(r.name) + '" title="改小组">' + gOpts + '</select></td>' +
+      '<td>' + rosterPageFieldBtn(r.name, 'role', r.role) + '</td>' +
+      '<td>' + rosterPageFieldBtn(r.name, 'classRole', r.classRole) + '</td>' +
+      '<td>' + rosterPageFieldBtn(r.name, 'dorm', r.dorm) + '</td>' +
+      '<td class="' + (r.base > 0 ? 'val-plus' : (r.base < 0 ? 'val-minus' : '')) + '">' + rosterPageSign(r.base) + '</td>' +
+      '<td><button type="button" class="btn-danger-sm" data-act="remove" data-name="' + esc(r.name) + '">删除</button></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  if (!rows.length) {
+    html = '<div class="text-muted">没有匹配「' + esc(search) + '」的学生。</div>';
+  }
+  setHTML(wrap, html);
+}
+
+function rosterPageFieldBtn(name, field, value) {
+  return '<button type="button" class="link-btn" data-act="field" data-field="' + field +
+    '" data-name="' + esc(name) + '" title="点击修改">' + (value ? esc(value) : '<span class="text-muted">—</span>') + '</button>';
+}
+
+// ---------------- ② 小组看板 ----------------
+
+function rosterPageRenderGroups() {
+  const wrap = $('groupBoard');
+  if (!wrap) return;
+  const board = buildGroupBoard(App.data, App.scoring);
+  const ungrouped = buildUngrouped(App.data);
+  const sel = rosterPageSelected && App.data.students[rosterPageSelected] ? rosterPageSelected : '';
+  const selGroup = sel ? (App.data.students[sel].group || '') : '';
+
+  const hint = $('groupBoardHint');
+  if (hint) hint.textContent = sel ? ('已选 ' + sel + '（' + (selGroup || '未分组') + '）→ 点目标组的「移到这里」') : '点一个学生 → 点目标组';
+
+  let html = '';
+  board.forEach(function (g) {
+    const fixed = g.name === selGroup;
+    html += '<div class="gb-card">' +
+      '<div class="gb-head">' +
+        '<span class="gb-name">' + esc(g.name) + '</span>' +
+        '<span class="gb-meta">' + g.count + ' 人 · 总分 ' + rosterPageSign(g.memberTotalSum) + '</span>' +
+        '<span class="gb-actions">' +
+          '<button type="button" class="btn-outline-sm" data-group-act="rename" data-group="' + esc(g.name) + '" title="重命名小组">✏️</button>' +
+          '<button type="button" class="btn-danger-sm" data-group-act="remove" data-group="' + esc(g.name) + '" title="删除小组">🗑</button>' +
+        '</span>' +
+      '</div>' +
+      '<div class="gb-members">' +
+        (g.members.length
+          ? g.members.map(function (n) {
+            const st = App.data.students[n] || {};
+            const total = App.scoring ? App.scoring.personalTotal(n) : 0;
+            const on = n === sel ? ' on' : '';
+            return '<button type="button" class="gb-chip' + on + '" data-pick="' + esc(n) + '">' + esc(n) +
+              '<b>' + rosterPageSign(total) + '</b></button>';
+          }).join('')
+          : '<span class="text-muted">（空组）</span>') +
+      '</div>' +
+      '<button type="button" class="gb-move" data-move-to="' + esc(g.name) + '"' + (fixed || !sel ? ' disabled' : '') + '>移到这里</button>' +
+    '</div>';
+  });
+
+  if (ungrouped.length) {
+    html += '<div class="gb-card gb-card-ungrouped">' +
+      '<div class="gb-head"><span class="gb-name">未分组</span><span class="gb-meta">' + ungrouped.length + ' 人</span></div>' +
+      '<div class="gb-members">' + ungrouped.map(function (n) {
+        return '<button type="button" class="gb-chip' + (n === sel ? ' on' : '') + '" data-pick="' + esc(n) + '">' + esc(n) + '</button>';
+      }).join('') + '</div>' +
+      '<button type="button" class="gb-move" data-move-to=""' + (!sel || selGroup === '' ? ' disabled' : '') + '>移到这里（未分组）</button>' +
+    '</div>';
+  }
+
+  if (!board.length) html = '<div class="text-muted">还没有小组，点下面「＋ 新建小组」。</div>';
+  setHTML(wrap, html);
+}
+
+// ---------------- ③ 分数查看 ----------------
+
+function rosterPageSortRows(rows) {
+  const key = rosterPageSortKey;
+  const dir = rosterPageSortDesc ? -1 : 1;
+  const copy = rows.slice();
+  copy.sort(function (a, b) {
+    let d;
+    if (key === 'name' || key === 'group') {
+      d = String(a[key] || '').localeCompare(String(b[key] || ''), 'zh-CN') * dir;
+    } else {
+      d = ((a[key] || 0) - (b[key] || 0)) * dir;
+    }
+    if (d === 0) d = a.name.localeCompare(b.name, 'zh-CN');
+    return d;
+  });
+  return copy;
+}
+
+function rosterPageLogsOf(name, limit) {
+  const logs = (App.data.logs || []).filter(function (l) { return l && l.type === 'student' && l.target === name; });
+  return logs.slice(0, limit);
+}
+
+function rosterPageRenderScores() {
+  const wrap = $('scoreTableWrap');
+  if (!wrap) return;
+  const search = (($('scoreSearch') && $('scoreSearch').value) || '').trim();
+  let rows = buildRosterRows(App.data, App.scoring, Date.now());
+  if (search) rows = rows.filter(function (r) { return r.name.indexOf(search) >= 0 || (r.group || '').indexOf(search) >= 0; });
+  rows = rosterPageSortRows(rows);
+
+  const arrow = function (key) {
+    if (key !== rosterPageSortKey) return '';
+    return rosterPageSortDesc ? ' ▼' : ' ▲';
+  };
+  let html = '<table class="score-table"><thead><tr>' +
+    '<th class="sortable" data-sort="name">姓名' + arrow('name') + '</th>' +
+    '<th>小组</th>' +
+    '<th class="sortable" data-sort="base">个人分' + arrow('base') + '</th>' +
+    '<th>小组分</th>' +
+    '<th>寝室分</th>' +
+    '<th class="sortable" data-sort="total">总分' + arrow('total') + '</th>' +
+    '<th class="sortable" data-sort="week">本周' + arrow('week') + '</th>' +
+    '<th>记录</th></tr></thead><tbody>';
+
+  rows.forEach(function (r) {
+    const cls = function (v) { return v > 0 ? 'val-plus' : (v < 0 ? 'val-minus' : ''); };
+    const expanded = r.name === rosterPageExpanded;
+    html += '<tr class="score-row' + (expanded ? ' expanded' : '') + '" data-open="' + esc(r.name) + '">' +
+      '<td>' + esc(r.name) + '</td>' +
+      '<td>' + (r.group ? esc(r.group) : '<span class="text-muted">未分组</span>') + '</td>' +
+      '<td class="' + cls(r.base) + '">' + rosterPageSign(r.base) + '</td>' +
+      '<td class="' + cls(r.groupAdj) + '">' + rosterPageSign(r.groupAdj) + '</td>' +
+      '<td class="' + cls(r.dormAdj) + '">' + rosterPageSign(r.dormAdj) + '</td>' +
+      '<td class="' + cls(r.total) + '"><b>' + rosterPageSign(r.total) + '</b></td>' +
+      '<td class="' + cls(r.week) + '">' + rosterPageSign(r.week) + '</td>' +
+      '<td>' + r.logs + '</td>' +
+      '</tr>';
+    if (expanded) {
+      const logs = rosterPageLogsOf(r.name, 6);
+      html += '<tr class="score-detail"><td colspan="8">' +
+        (logs.length
+          ? '<div class="score-log-list">' + logs.map(function (l) {
+            return '<span class="score-log"><i>' + esc(String(l.time || '').replace(/^.*\s/, '')) + '</i>' +
+              rosterPageSign(l.score) + ' ' + esc(l.reason || '') + (l.undone ? '（已撤销）' : '') + '</span>';
+          }).join('') + '</div>'
+          : '<span class="text-muted">这个人还没有操作记录。</span>') +
+        '</td></tr>';
+    }
+  });
+  html += '</tbody></table>';
+  if (!rows.length) html = '<div class="text-muted">没有匹配「' + esc(search) + '」的学生。</div>';
+  setHTML(wrap, html);
+}
+
+// ---------------- 对外：渲染 + 绑定 ----------------
+
+function renderRosterPage() {
+  if (!$('viewRoster')) return;
+  if (!App.data) return;
+  rosterPageRenderStudents();
+  rosterPageRenderGroups();
+  rosterPageRenderScores();
+}
+
+function bindRosterPage() {
+  const students = $('rosterTableWrap');
+  if (students) {
+    // 改名 / 改字段 / 删除
+    on(students, 'click', function (e) {
+      const btn = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+      if (!btn || !btn.dataset) return;
+      const name = btn.dataset.name || '';
+      const act = btn.dataset.act;
+      if (!guardWrite()) return;
+      if (act === 'rename') {
+        promptDialog({ title: '改姓名（分数与记录都会跟着走）', input: { value: name, placeholder: '新姓名' } })
+          .then(function (val) {
+            if (val === null) return;
+            withAuth(function () {
+              const res = rosterRenameStudent(App.data, name, val);
+              if (!res.ok) { toast(res.error, 'err'); return; }
+              if (rosterPageSelected === name) rosterPageSelected = res.name;
+              rosterPageCommit();
+              toast('已改名为「' + res.name + '」', 'ok');
+            });
+          });
+        return;
+      }
+      if (act === 'field') {
+        const field = btn.dataset.field;
+        const cur = (App.data.students[name] || {})[field] || '';
+        const label = field === 'role' ? '岗位' : (field === 'classRole' ? '职务' : '寝室');
+        promptDialog({ title: '修改' + label + '（留空 = 清除）', input: { value: cur, placeholder: label } })
+          .then(function (val) {
+            if (val === null) return;
+            withAuth(function () {
+              rosterSetStudentField(App.data, name, field, val);
+              rosterPageCommit();
+              toast('已更新' + label, 'ok');
+            });
+          });
+        return;
+      }
+      if (act === 'remove') {
+        confirmDialog({
+          title: '删除「' + name + '」？',
+          message: '会同时删除 TA 的小组/寝室归属、点名名单里的位置，以及 TA 的操作记录。\n此操作不可撤销（可先「导出」备份再删）。',
+          confirmText: '删除',
+          danger: true
+        }).then(function (ok) {
+          if (!ok) return;
+          withAuth(function () {
+            const res = rosterRemoveStudent(App.data, name);
+            if (!res.ok) { toast(res.error, 'err'); return; }
+            if (rosterPageSelected === name) rosterPageSelected = '';
+            if (rosterPageExpanded === name) rosterPageExpanded = '';
+            rosterPageCommit();
+            toast('已删除「' + name + '」（清掉 ' + res.removedLogs + ' 条记录）', 'ok');
+          });
+        });
+      }
+    });
+
+    // 下拉换组
+    on(students, 'change', function (e) {
+      const sel = e.target && e.target.dataset && e.target.dataset.move ? e.target : null;
+      if (!sel) return;
+      const name = sel.dataset.move;
+      const to = sel.value;
+      if (!guardWrite()) { rosterPageRenderStudents(); return; }
+      withAuth(function () {
+        const res = rosterMoveStudent(App.data, name, to);
+        if (!res.ok) { toast(res.error, 'err'); rosterPageRenderStudents(); return; }
+        rosterPageCommit();
+        toast('已把「' + name + '」' + (to ? '移到 ' + to : '设为未分组'), 'ok');
+      });
+    });
+
+    const search = $('rosterSearch');
+    if (search) on(search, 'input', function () { rosterPageRenderStudents(); });
+    const addBtn = $('rosterAddBtn');
+    if (addBtn) on(addBtn, 'click', function () {
+      if (!guardWrite()) return;
+      promptDialog({ title: '添加学生', message: '姓名（可一次输入多个，用逗号或换行分隔）', input: { placeholder: '张三' } })
+        .then(function (val) {
+          if (val === null) return;
+          const names = rosterParseNames(val);
+          if (!names.length) { toast('没有识别到姓名', 'err'); return; }
+          withAuth(function () {
+            const added = [];
+            const failed = [];
+            names.forEach(function (n) {
+              const res = rosterAddStudent(App.data, n, '');
+              if (res.ok) added.push(n); else failed.push(n);
+            });
+            rosterPageCommit();
+            toast(added.length ? ('已添加 ' + added.length + ' 人' + (failed.length ? '，重复跳过 ' + failed.length + ' 个' : '')) : '都重复了，没有新增', added.length ? 'ok' : 'err');
+          });
+        });
+    });
+    const bulkBtn = $('rosterBulkBtn');
+    if (bulkBtn) on(bulkBtn, 'click', function () {
+      if (!guardWrite()) return;
+      promptDialog({ title: '批量粘贴名单', message: '一行一个姓名（也会自动拆逗号/空格）。已存在的姓名会跳过，分数不受影响。', input: { placeholder: '张三\n李四\n王五' } })
+        .then(function (val) {
+          if (val === null) return;
+          const names = rosterParseNames(val);
+          if (!names.length) { toast('没有识别到姓名', 'err'); return; }
+          withAuth(function () {
+            let added = 0;
+            names.forEach(function (n) { if (rosterAddStudent(App.data, n, '').ok) added += 1; });
+            rosterPageCommit();
+            toast('粘贴完成：新增 ' + added + ' 人，跳过 ' + (names.length - added) + ' 个已存在的', added ? 'ok' : 'err');
+          });
+        });
+    });
+  }
+
+  // ② 小组看板
+  const board = $('groupBoard');
+  if (board) {
+    on(board, 'click', function (e) {
+      const chip = e.target && e.target.closest ? e.target.closest('[data-pick]') : null;
+      if (chip) {
+        const name = chip.dataset.pick;
+        rosterPageSelected = (rosterPageSelected === name) ? '' : name;
+        rosterPageRenderGroups();
+        return;
+      }
+      const moveBtn = e.target && e.target.closest ? e.target.closest('[data-move-to]') : null;
+      if (moveBtn) {
+        if (!rosterPageSelected || !guardWrite()) return;
+        const to = moveBtn.dataset.moveTo || '';
+        const name = rosterPageSelected;
+        withAuth(function () {
+          const res = rosterMoveStudent(App.data, name, to);
+          if (!res.ok) { toast(res.error, 'err'); return; }
+          rosterPageSelected = '';
+          rosterPageCommit();
+          toast('已把「' + name + '」' + (to ? '移到 ' + to : '设为未分组'), 'ok');
+        });
+        return;
+      }
+      const act = e.target && e.target.closest ? e.target.closest('[data-group-act]') : null;
+      if (!act) return;
+      const group = act.dataset.group;
+      if (!guardWrite()) return;
+      if (act.dataset.groupAct === 'rename') {
+        promptDialog({ title: '重命名小组', input: { value: group, placeholder: '新组名' } })
+          .then(function (val) {
+            if (val === null) return;
+            withAuth(function () {
+              const res = rosterRenameGroup(App.data, group, val);
+              if (!res.ok) { toast(res.error, 'err'); return; }
+              rosterPageCommit();
+              toast('已重命名为「' + res.name + '」', 'ok');
+            });
+          });
+        return;
+      }
+      if (act.dataset.groupAct === 'remove') {
+        const members = (App.data.groups[group] || []);
+        confirmDialog({
+          title: '删除小组「' + group + '」？',
+          message: '组内 ' + members.length + ' 人会变成「未分组」，该组的小组整体加减分也会删除（成员的分数不变）。',
+          confirmText: '删除',
+          danger: true
+        }).then(function (ok) {
+          if (!ok) return;
+          withAuth(function () {
+            const res = rosterRemoveGroup(App.data, group);
+            if (!res.ok) { toast(res.error, 'err'); return; }
+            rosterPageCommit();
+            toast('已删除「' + group + '」' + (res.droppedAdjust ? '（小组分 ' + rosterPageSign(res.droppedAdjust) + ' 一并删除）' : ''), 'ok');
+          });
+        });
+      }
+    });
+    const addBtn = $('groupAddBtn');
+    if (addBtn) on(addBtn, 'click', function () {
+      if (!guardWrite()) return;
+      promptDialog({ title: '新建小组', input: { placeholder: '例如 第5组' } })
+        .then(function (val) {
+          if (val === null) return;
+          withAuth(function () {
+            const res = rosterAddGroup(App.data, val);
+            if (!res.ok) { toast(res.error, 'err'); return; }
+            rosterPageCommit();
+            toast('已新建「' + res.name + '」', 'ok');
+          });
+        });
+    });
+  }
+
+  // ③ 分数查看
+  const scores = $('scoreTableWrap');
+  if (scores) {
+    on(scores, 'click', function (e) {
+      const th = e.target && e.target.closest ? e.target.closest('th[data-sort]') : null;
+      if (th) {
+        const key = th.dataset.sort;
+        if (ROSTER_SORTS.indexOf(key) < 0) return;
+        if (rosterPageSortKey === key) rosterPageSortDesc = !rosterPageSortDesc;
+        else { rosterPageSortKey = key; rosterPageSortDesc = (key !== 'name' && key !== 'group'); }
+        rosterPageRenderScores();
+        return;
+      }
+      const row = e.target && e.target.closest ? e.target.closest('tr[data-open]') : null;
+      if (!row) return;
+      const name = row.dataset.open;
+      rosterPageExpanded = (rosterPageExpanded === name) ? '' : name;
+      rosterPageRenderScores();
+    });
+    const search = $('scoreSearch');
+    if (search) on(search, 'input', function () { rosterPageRenderScores(); });
+  }
+}
+
 /* ===== js/features/io.js ===== */
 // ================================================================
 // features/io.js — 📥 导出 / 📤 导入 / 🔄 重置 / 迁移备份
@@ -5178,10 +6141,10 @@ function saveUIState(patch) {
   } catch (e) { /* 忽略：仅影响悬浮球位置等界面偏好 */ }
 }
 
-/** 启动时要显示的视图：地址栏 #picker / #manage 优先，其次上次的选择 */
+/** 启动时要显示的视图：地址栏 #pick/roster/manage 优先，其次上次的选择 */
 function initialView() {
   const hash = String(location.hash || '').replace(/^#/, '');
-  if (hash === VIEW_PICKER || hash === VIEW_MANAGE) return hash;
+  if (hash === VIEW_PICKER || hash === VIEW_ROSTER || hash === VIEW_MANAGE) return hash;
   return normalizeView(loadUIState().view);
 }
 
@@ -5190,8 +6153,10 @@ function switchView(name) {
   App.view = view;
 
   const manage = $('viewManage');
+  const roster = $('viewRoster');
   const picker = $('viewPicker');
   if (manage) manage.hidden = view !== VIEW_MANAGE;
+  if (roster) roster.hidden = view !== VIEW_ROSTER;
   if (picker) picker.hidden = view !== VIEW_PICKER;
 
   $$('.app-nav-btn').forEach(function (btn) {
@@ -6186,14 +7151,12 @@ function initJournal() {
 // features/formula.js — 加扣分公式页面
 //
 // 展示三块内容（带姓名，可公示）：
-//   ① 当日加扣分明细（时间 / 对象 / 分值 / 原因）
-//   ② 个人总分排名 + 小组总分排名
+//   ① 当日加扣分明细（时间 / 对象 / 姓名 / 分值 / 原因）
+//   ② 公示栏：本周 / 累计 × 个人 / 小组（周会直接投屏）
 //   ③ 本周小组连带折算（6 人次起扣、每多 4 人次 −2），逐组列出人次与应扣分
 //
-// 自挂载：自己把卡片插到「管理系统」视图末尾，不需要改 index.html。
+// 卡片容器在 index.html 里静态存在（R4：不再运行时 append，id 固定 #formulaCard）。
 // ================================================================
-
-const CARD_ID = 'formulaCard';
 
 function formulaEsc(s) {
   return String(s === undefined || s === null ? '' : s)
@@ -6204,25 +7167,7 @@ function sign(v) { return v > 0 ? '+' + v : String(v); }
 
 function typeText(t) { return t === 'group' ? '小组' : (t === 'dorm' ? '寝室' : '个人'); }
 
-/** 把卡片插进「管理系统」视图（找不到就插到 #app 末尾） */
-function mountFormula() {
-  if ($(CARD_ID)) return;
-  const view = $('viewManage') || $('app');
-  if (!view) return;
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.id = CARD_ID;
-  card.innerHTML =
-    '<details class="card-fold"><summary>📐 加扣分公式与公示<span class="fold-hint">周会/家长会前展开，日常不用看</span></summary>' +
-    '<div class="setting-note" id="formulaNote"></div>' +
-    '<div id="formulaToday"></div>' +
-    '<div id="formulaRank"></div>' +
-    '<div id="formulaSolidarity"></div></details>';
-  view.appendChild(card);
-}
-
 function renderFormula() {
-  mountFormula();
   const today = document.getElementById('formulaToday');
   const rank = document.getElementById('formulaRank');
   const sol = document.getElementById('formulaSolidarity');
@@ -6514,6 +7459,7 @@ function renderAll() {
   renderJournalUI();
   renderFormula();
   renderLastAction();
+  renderRosterPage();
   mountBigRankToggle();
   updateLockUI();
 }
@@ -6603,11 +7549,13 @@ function boot() {
   App.render = renderAll;
   App.onViewShown = function (view) {
     if (view === VIEW_PICKER) refreshPickerStage();
+    if (view === VIEW_ROSTER) renderRosterPage();   // 名单页每次进来重画一遍，避免看到过期数据
   };
 
   bindIO();
   bindEntry();
   bindRoster();
+  bindRosterPage();
   bindSettings();
   bindShell();
   bindPicker();
