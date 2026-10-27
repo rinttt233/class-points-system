@@ -2338,7 +2338,7 @@ function resolveStorage() {
   try {
     const ls = globalThis.localStorage;
     if (!ls) return { storage: createMemoryStorage(), persistent: false, reason: '当前环境没有 localStorage' };
-    const probe = '__class32_probe__';
+    const probe = '__class_probe__';
     ls.setItem(probe, '1');
     ls.removeItem(probe);
     return { storage: ls, persistent: true, reason: '' };
@@ -2405,7 +2405,7 @@ function createStore(storage, key) {
     while (keys.length > limit) remove(keys.shift());
   }
 
-  /** 备份：写一份 class32_backup_<时间戳>_<标签>，并返回可下载的 JSON 文本 */
+  /** 备份：写一份 class_backup_<时间戳>_<标签>，并返回可下载的 JSON 文本 */
   function backup(data, tag) {
     const key = BACKUP_KEY_PREFIX + formatBackupStamp(new Date()) + (tag ? '_' + tag : '');
     const json = JSON.stringify(data, null, 2);
